@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Aftelkalender — Pensioen</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Pensioen Teller">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <style>
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+           background: linear-gradient(135deg,#f8fafc 0%,#eef2ff 100%); color:#0f172a;
+           display:flex; align-items:center; justify-content:center; height:100vh; margin:0; }
+    .card { background: white; padding:28px; border-radius:12px; box-shadow: 0 6px 30px rgba(15,23,42,0.08);
+           width:360px; max-width:92%; text-align:center; }
+    h1 { margin:0 0 8px; font-size:20px; }
+    p.small { margin:6px 0; color:#475569; font-size:13px; }
+    .big { font-size:56px; font-weight:700; margin:12px 0; letter-spacing:-1px; color:#0b1220; }
+    .meta { display:flex; justify-content:space-between; gap:10px; margin-top:12px; font-size:13px; color:#334155; }
+    .progress { height:12px; background:#e6eefc; border-radius:999px; overflow:hidden; margin-top:14px; }
+    .bar { height:100%; width:0%; background:linear-gradient(90deg,#60a5fa,#7c3aed); transition:width 600ms ease; }
+    footer { margin-top:16px; font-size:12px; color:#64748b; }
+    .btn { margin-top:10px; display:inline-block; padding:8px 12px; border-radius:8px; background:#0ea5a4; color:white; text-decoration:none; font-weight:600;}
+    small.note { display:block; margin-top:8px; color:#94a3b8; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Aftellen naar je pensioen</h1>
+    <p class="small" id="todayLine">Vandaag: —</p>
+    <div class="big" id="daysLeft">—</div>
+    <div class="meta">
+      <div>
+        <div style="font-size:11px; color:#94a3b8">Doel</div>
+        <div>1 maart 2026</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:11px; color:#94a3b8">Tijdszone</div>
+        <div id="tz">—</div>
+      </div>
+    </div>
+
+    <div class="progress">
+      <div class="bar" id="progressBar"></div>
+    </div>
+
+    <footer>
+      <div id="message">Nog — dagen tot je pensioen.</div>
+      <small class="note">Deze teller werkt per dag en ververst automatisch bij middernacht.</small>
+      <a class="btn" id="refreshBtn" href="#" onclick="update(); return false;">Ververs nu</a>
+    </footer>
+  </div>
+
+<script>
+(function(){
+  const target = new Date(2026, 2, 1);
+  const startNow = new Date();
+  function daysBetweenCeil(now, targetDate) {
+    const diffMs = targetDate - now;
+    const msPerDay = 24 * 60 * 60 * 1000;
+    if (diffMs <= 0) return 0;
+    return Math.ceil(diffMs / msPerDay);
+  }
+  function percentProgress(now, targetDate, baseline) {
+    const totalMs = targetDate - baseline;
+    if (totalMs <= 0) return 100;
+    const passedMs = now - baseline;
+    let p = (passedMs / totalMs) * 100;
+    if (p < 0) p = 0;
+    if (p > 100) p = 100;
+    return p;
+  }
+  function formatDateLocal(d) {
+    return d.toLocaleDateString(undefined, { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+  }
+  function update() {
+    const now = new Date();
+    const days = daysBetweenCeil(now, target);
+    document.getElementById('todayLine').textContent = "Vandaag: " + formatDateLocal(now);
+    document.getElementById('daysLeft').textContent = days;
+    document.getElementById('tz').textContent = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Locale';
+    document.getElementById('message').textContent = days === 0 ? "Gefeliciteerd — vandaag begint je pensioen!" : "Nog " + days + " dag" + (days === 1 ? "" : "en") + " tot je pensioen.";
+    document.getElementById('progressBar').style.width = percentProgress(now, target, startNow) + "%";
+  }
+  update();
+  function scheduleMidnightUpdate() {
+    const now = new Date();
+    const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    const msUntil = nextMidnight - now + 1000;
+    setTimeout(function(){
+      update();
+      scheduleMidnightUpdate();
+    }, msUntil);
+  }
+  scheduleMidnightUpdate();
+  document.getElementById('refreshBtn').addEventListener('click', update);
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(err => console.error('SW fail', err));
+  }
+})();
+</script>
+</body>
+</html>
